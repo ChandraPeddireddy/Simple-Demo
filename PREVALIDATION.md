@@ -256,3 +256,44 @@ curl -s -H "Authorization: Bearer ${TOKEN}" \
 
 > This confirms a metastore *exists* — it does **not** prove you can create a
 > catalog in it. That's Check #7.
+
+---
+
+## 7. `CREATE CATALOG` on the metastore (for the deploying principal)
+
+- **Validates:** the identity running Terraform has `CREATE CATALOG` on the
+  metastore — required by `databricks_postgres_catalog`. **This is the gap we hit
+  (the automation SP lacks it).**
+
+### Read-only check (verified) — no "try and see"
+
+Reusing `TOKEN` from Check #5 and `MS_ID` from Check #6:
+
+```bash
+MS_ID=<metastore_id>            # from Check #6
+PRINCIPAL=<sp-application-id>    # or a user email
+curl -s -H "Authorization: Bearer ${TOKEN}" \
+  "${DATABRICKS_HOST}/api/2.1/unity-catalog/effective-permissions/metastore/${MS_ID}?principal=${PRINCIPAL}" \
+  | python3 -c "import json,sys;print([p['privilege'] for pa in json.load(sys.stdin).get('privilege_assignments',[]) for p in pa['privileges'] if p['privilege']=='CREATE_CATALOG'] or 'NONE')"
+```
+- **Pass:** prints `['CREATE_CATALOG']`. (Workspace-admin users have it via the
+  `admins` group; a bare service principal usually shows `NONE`.)
+- **CLI equivalent:** `databricks grants get-effective metastore <MS_ID> --principal <p>`
+
+### Fix (metastore / account admin)
+
+```sql
+GRANT CREATE CATALOG ON METASTORE TO `<sp-application-id>`;
+```
+
+### Caveats (honest)
+
+- **Necessary, not proven sufficient:** we observed a principal *with*
+  `CREATE_CATALOG` still fail the Lakebase catalog create. If this check passes
+  but `apply` still errors on the catalog, suspect a Lakebase-specific factor
+  (registration running under a managed identity, or the metastore's
+  Default-Storage / missing-storage-root config) and escalate.
+- **Deploy without the catalog meanwhile:** the project + endpoint don't need this
+  grant — deploy just those with
+  `terraform apply -target=databricks_postgres_project.this -target=databricks_postgres_endpoint.prod_primary`,
+  then add the catalog once the grant is in place.
