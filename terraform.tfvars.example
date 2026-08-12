@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars and override as needed.
+#   cp terraform.tfvars.example terraform.tfvars
+# terraform.tfvars is gitignored.
+
+project_id           = "simple-demo"
+project_display_name = "Simple Demo"
+pg_version           = 17
+
+# Starting instance size (tune autoscaling/HA/replicas from the UI later).
+prod_min_cu = 1
+prod_max_cu = 2
+
+# UC catalog handed to the app team.
+uc_catalog_id                = "simple_demo"
+uc_catalog_postgres_database = "databricks_postgres"
