@@ -218,3 +218,41 @@ curl -s -o /dev/null -w "HTTP %{http_code}\n" \
 - **Wrong host:** confirm `DATABRICKS_HOST` points at the intended workspace.
 - Otherwise reachability also surfaces at `apply` time: the
   `databricks_postgres_project` resource is created first and fails fast.
+
+---
+
+## 6. Unity Catalog metastore attached
+
+- **Validates:** a **UC metastore is assigned to the workspace** (and its region
+  matches). The `databricks_postgres_catalog` resource registers into that
+  metastore — no metastore, nothing to register into.
+
+### Happy path (CLI)
+
+```bash
+databricks metastores summary        # --profile <p> if using a profile
+```
+- **Pass:** returns a metastore with `metastore_name` / `metastore_id` / `region`.
+
+### No-CLI REST probe (verified)
+
+Reusing the token from Check #5:
+
+```bash
+curl -s -H "Authorization: Bearer ${TOKEN}" \
+  "${DATABRICKS_HOST}/api/2.1/unity-catalog/metastore_summary"
+```
+- **Pass:** `HTTP 200` with `metastore_name` / `metastore_id` / `region` populated.
+- *(Related: `GET /api/2.1/unity-catalog/current-metastore-assignment` confirms
+  the workspace→metastore assignment specifically.)*
+
+### If it fails
+
+- **404 / empty / `METASTORE_DOES_NOT_EXIST`:** no metastore assigned to this
+  workspace — an **account admin** must create/assign one (one metastore per
+  region).
+- **Region mismatch:** the metastore's `region` should align with where the
+  workspace and Lakebase run; a mismatch is a governance red flag to raise.
+
+> This confirms a metastore *exists* — it does **not** prove you can create a
+> catalog in it. That's Check #7.
