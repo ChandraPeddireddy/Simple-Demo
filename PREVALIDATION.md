@@ -1,12 +1,43 @@
 # Pre-validation — `simple-demo`
 
-Checks that must pass **before** `terraform apply` will succeed. Run them
-top-to-bottom (they're in dependency order); `preflight.sh` automates the same
-set. Nothing here creates resources.
+Checks that must pass **before** `terraform apply` will succeed, in dependency
+order. Nothing here creates resources. `preflight.sh` automates checks **1–6**;
+**7–8** need a principal / project id, so run those manually.
 
-Auth for the CLI-based checks: set one of
-- `export DATABRICKS_CONFIG_PROFILE=lakebase-sandbox`, or
-- `source env.sh` (SP M2M: `DATABRICKS_HOST` + `DATABRICKS_CLIENT_ID` + `DATABRICKS_CLIENT_SECRET`).
+## At a glance
+
+| # | Check | Blocks apply if… |
+|---|-------|------------------|
+| 1 | Terraform ≥ 1.9 | binary missing / too old |
+| 2 | Databricks CLI (*optional*) | only convenience/verification |
+| 3 | Authentication resolves | no valid credential |
+| 4 | Provider ≥ 1.126.0 (`terraform init`) | registry blocked / bad pin |
+| 5 | Lakebase enabled & reachable | feature off / no access |
+| 6 | Unity Catalog metastore attached | no metastore for the catalog |
+| 7 | `CREATE CATALOG` for the deploying principal | catalog create denied |
+| 8 | No `project_id` collision | slug active or soft-deleted |
+
+## Set up auth once
+
+Pick **one** identity for every check below (full treatment + how to obtain the
+values is in **Check #3**):
+- **CLI profile:** `export DATABRICKS_CONFIG_PROFILE=<profile>`
+- **SP M2M (no CLI):** `source env.sh` (`DATABRICKS_HOST` + `DATABRICKS_CLIENT_ID` + `DATABRICKS_CLIENT_SECRET`)
+
+The REST probes in checks 5–8 reuse `DATABRICKS_HOST` and a bearer `TOKEN`. Mint
+`TOKEN` once:
+
+```bash
+# SP M2M — no CLI needed
+export DATABRICKS_HOST="https://adb-XXXXXXXX.azuredatabricks.net"
+TOKEN=$(curl -s -X POST "${DATABRICKS_HOST}/oidc/v1/token" \
+  --user "${DATABRICKS_CLIENT_ID}:${DATABRICKS_CLIENT_SECRET}" \
+  --data 'grant_type=client_credentials&scope=all-apis' \
+  | python3 -c "import json,sys;print(json.load(sys.stdin)['access_token'])")
+
+# CLI profile alternative:
+# TOKEN=$(databricks auth token -p <profile> | python3 -c "import json,sys;print(json.load(sys.stdin)['access_token'])")
+```
 
 ---
 
