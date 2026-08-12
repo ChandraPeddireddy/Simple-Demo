@@ -297,3 +297,37 @@ GRANT CREATE CATALOG ON METASTORE TO `<sp-application-id>`;
   grant — deploy just those with
   `terraform apply -target=databricks_postgres_project.this -target=databricks_postgres_endpoint.prod_primary`,
   then add the catalog once the grant is in place.
+
+---
+
+## 8. No `project_id` collision (incl. soft-deleted / reserved slugs)
+
+- **Validates:** the `project_id` isn't already taken — by an **active** project,
+  or by a **soft-deleted** one whose slug is still reserved (`purge_on_delete=false`
+  → ~7-day retention). `project_id` is immutable and *is* the slug; a collision
+  fails `apply`.
+- **Why it's subtle:** `list-projects` (default) **hides** soft-deleted projects,
+  so an empty list does **not** prove the slug is free — a reserved slug still
+  blocks re-apply until its `purge_time`.
+
+### Read-only check (verified)
+
+```bash
+databricks postgres get-project projects/<project_id>          # CLI
+# or no-CLI:
+curl -s -H "Authorization: Bearer ${TOKEN}" \
+  "${DATABRICKS_HOST}/api/2.0/postgres/projects/<project_id>"
+```
+- **Free slug:** not found (404) → safe to deploy.
+- **Active collision:** returns a project with **no** `purge_time` → pick a new id
+  or manage the existing project.
+- **Reserved (soft-deleted):** returns a project **with** `purge_time` → blocked
+  until that timestamp.
+- List both at once: `databricks postgres list-projects --show-deleted`
+  (`GET /api/2.0/postgres/projects?show_deleted=true`).
+
+### If it collides
+
+- **Active:** choose a different `project_id`, or import/manage the existing one.
+- **Reserved:** wait until `purge_time`, **or** free the slug now by purging
+  (`purge_on_delete = true` on destroy, or purge via API/UI).
