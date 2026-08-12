@@ -80,6 +80,29 @@ Auth for the CLI-based checks: set one of
   export DATABRICKS_TOKEN="<pat>"
   ```
   PATs are tied to a user and often disabled in locked-down orgs — prefer the SP.
+### Where these values go
+
+The `export`s set credentials in the **shell environment** the provider reads —
+they are not added to any `.tf` file. Pick one:
+
+- **Local runs (recommended):** copy `env.sh.example` → `env.sh`, fill it in,
+  then `source env.sh` before Terraform:
+  ```bash
+  cp env.sh.example env.sh   # edit with real values
+  chmod 600 env.sh
+  source env.sh
+  terraform plan
+  ```
+  `env.sh` is gitignored, so the secret never gets committed (the secret-scan
+  hook would block it anyway).
+- **One-off:** paste the three `export` lines straight into your shell.
+- **CI/CD (production):** store `CLIENT_ID`/`CLIENT_SECRET` in the pipeline's
+  secret store (ideally backed by Azure Key Vault) and inject them as env vars
+  at run time — never in the repo or logs.
+
+> The `CLIENT_SECRET` is a live, **expiring** credential: keep it out of git,
+> `*.tfvars`, Terraform state, and logs.
+
 - **Check (CLI):** `databricks current-user me` → returns your identity.
 - **Check (no CLI):** `terraform plan` → authenticates and refreshes; a bad
   credential fails with a clear auth error rather than a resource diff.
