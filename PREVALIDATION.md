@@ -172,3 +172,49 @@ source instead of the public registry:
   `terraform providers lock -platform=darwin_arm64 -platform=linux_amd64`.
 - **Other failures:** stale cached provider → `terraform init -upgrade`; version
   conflict → check the `versions.tf` pin.
+
+---
+
+## 5. Lakebase (Postgres) enabled & reachable
+
+- **Validates:** the workspace has **Lakebase (OLTP / Postgres)** enabled and the
+  authenticated identity can reach its API. All three resources are
+  `databricks_postgres_*`, so if the feature is off or unreachable, `apply` fails
+  on the very first resource.
+
+### Happy path (CLI)
+
+```bash
+databricks postgres list-projects        # --profile <p> if using a profile
+```
+- **Pass:** returns a list (empty `[]` is fine — just no projects yet), exit 0.
+
+### No-CLI REST probe (verified)
+
+Fully CLI-free — mint an M2M token, then hit the Lakebase API:
+
+```bash
+# 1) OAuth M2M token from the SP creds (client_credentials)
+TOKEN=$(curl -s --request POST "${DATABRICKS_HOST}/oidc/v1/token" \
+  --user "${DATABRICKS_CLIENT_ID}:${DATABRICKS_CLIENT_SECRET}" \
+  --data 'grant_type=client_credentials&scope=all-apis' \
+  | python3 -c "import json,sys;print(json.load(sys.stdin)['access_token'])")
+
+# 2) reachability probe — expect HTTP 200
+curl -s -o /dev/null -w "HTTP %{http_code}\n" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  "${DATABRICKS_HOST}/api/2.0/postgres/projects"
+```
+- **Pass:** step 1 returns an `access_token`; step 2 prints `HTTP 200`.
+- *(For a PAT instead of an SP, skip step 1 and use `Authorization: Bearer $DATABRICKS_TOKEN`.)*
+
+### If it fails
+
+- **`FEATURE_DISABLED` / 404 / not found:** Lakebase isn't enabled for this
+  workspace — a **workspace/account admin** enables it (Azure `eastus2` is GA);
+  confirm the region supports Lakebase.
+- **`401`/`PERMISSION_DENIED`:** bad token (recheck creds) or the identity lacks
+  workspace access — grant it.
+- **Wrong host:** confirm `DATABRICKS_HOST` points at the intended workspace.
+- Otherwise reachability also surfaces at `apply` time: the
+  `databricks_postgres_project` resource is created first and fails fast.
