@@ -73,6 +73,27 @@ Auth for the CLI-based checks: set one of
 > (workspace access, Lakebase, and — for the catalog — `CREATE CATALOG` on the
 > metastore). Creating the SP does not grant these automatically.
 
+### Who can obtain these credentials
+
+Two separate permission layers — obtaining a credential does **not** grant it the
+ability to deploy (that's Checks 5–7).
+
+| To do this | You need |
+|------------|----------|
+| Create the SP in the **account** | Account admin |
+| Register the SP in the **workspace** | Workspace admin |
+| Generate the SP's **OAuth secret** | Workspace/account admin, **or** `CAN_MANAGE` on that specific SP (delegated) |
+| Generate a **PAT** | Token-based auth enabled for the workspace **and** the user holding the token-usage entitlement; the PAT inherits that user's permissions. Often disabled in locked-down orgs. |
+
+A non-admin cannot self-create the SP secret — have a **workspace/account admin**
+create the SP, generate its secret, grant it workspace/Lakebase access, and get a
+**metastore admin** to grant `CREATE CATALOG`; then receive the `CLIENT_ID` +
+`SECRET` over a secure channel.
+
+> Azure note: this is the Databricks-managed SP OAuth-secret path. If your org
+> mandates Microsoft Entra ID service principals, the secret is issued by Entra
+> instead — confirm with your admin.
+
 - **Alternative — Personal Access Token (PAT):** **Settings → Developer →
   Access tokens → Generate new token**, then:
   ```bash
