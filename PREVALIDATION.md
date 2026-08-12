@@ -128,3 +128,47 @@ they are not added to any `.tf` file. Pick one:
 - **Check (no CLI):** `terraform plan` → authenticates and refreshes; a bad
   credential fails with a clear auth error rather than a resource diff.
 - **Pass:** identity resolves / `plan` authenticates without an auth error.
+
+---
+
+## 4. Databricks provider ≥ 1.126.0 resolvable (`terraform init`)
+
+- **Validates:** `terraform init` can install the Databricks provider at the
+  pinned version (`>= 1.126.0, < 2.0` in `versions.tf`), so `plan`/`apply` have
+  the plugin.
+- **Why ≥ 1.126.0:** first version exposing `databricks_postgres_project` /
+  `_endpoint` / `_catalog`. On an older provider, `plan` fails with *"Invalid
+  resource type."*
+
+### Happy path (registry reachable)
+
+```bash
+terraform init
+```
+- **Pass:** *"Terraform has been successfully initialized!"* and a line like
+  `Installed databricks/databricks v1.126.x`.
+- `init` downloads the provider from **`registry.terraform.io`**.
+
+### Workaround (public registry blocked — air-gapped / restricted)
+
+If `init` fails with a registry/network error, point Terraform at an internal
+source instead of the public registry:
+
+- **Filesystem mirror** — on a connected machine:
+  ```bash
+  terraform providers mirror ./tf-mirror     # add -platform=linux_amd64 etc. for other OSes
+  ```
+  copy `./tf-mirror` to the restricted host, then in `~/.terraformrc`:
+  ```hcl
+  provider_installation {
+    filesystem_mirror { path = "/path/to/tf-mirror" }
+    direct { exclude = ["registry.terraform.io/*/*"] }
+  }
+  ```
+- **Network mirror** — an internal registry (Artifactory / Nexus / TFE private
+  registry) via a `network_mirror { url = "https://..." }` block in the same file.
+- **Lock file:** commit `.terraform.lock.hcl` for reproducible versions; generate
+  cross-platform hashes with
+  `terraform providers lock -platform=darwin_arm64 -platform=linux_amd64`.
+- **Other failures:** stale cached provider → `terraform init -upgrade`; version
+  conflict → check the `versions.tf` pin.
