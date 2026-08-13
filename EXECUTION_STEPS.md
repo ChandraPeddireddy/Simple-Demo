@@ -19,7 +19,7 @@ Gather these before you start (fill in the blanks):
 | Item | Example | Where it comes from |
 |------|---------|---------------------|
 | Workspace URL (`HOST`) | `https://adb-XXXX.azuredatabricks.net` | browser address bar of your workspace |
-| Auth method | SP OAuth M2M *(recommended)* / CLI profile / PAT | your security policy |
+| Auth method | SP OAuth M2M *(recommended)* / CLI profile / PAT | pick one — see "Choosing an auth method" below |
 | SP application id (`CLIENT_ID`) | `xxxxxxxx-xxxx-…` | Settings → Identity and access → Service principals |
 | SP OAuth secret (`CLIENT_SECRET`) | *(secret)* | the SP → Secrets → Generate secret (shown once) |
 | Deploying principal | SP app id, or your user email | the identity Terraform runs as |
@@ -31,6 +31,24 @@ Gather these before you start (fill in the blanks):
 > The **secret** is a live, expiring credential — keep it out of git, `*.tfvars`,
 > and logs. See [`PREVALIDATION.md` §3](./PREVALIDATION.md) for exactly how to
 > obtain each value and **who** can generate it.
+
+### Choosing an auth method
+
+Terraform needs a credential to talk to your workspace. Pick **one** — they're
+equivalent for deploying; the difference is how the credential is issued.
+
+| Method | Best when | What you provide | Databricks CLI needed? | Expires? |
+|--------|-----------|------------------|------------------------|----------|
+| **SP OAuth M2M** *(recommended)* | Automation/CI, locked-down networks, or no CLI allowed. This is the standard enterprise choice. | `HOST` + `CLIENT_ID` + `CLIENT_SECRET` (the SP's OAuth secret) | **No** — the provider mints its own token | Secret has an expiry; rotate it |
+| **CLI profile** | Interactive local use where you can install the CLI and sign in via browser. | Run `databricks auth login --host <url> --profile <name>` (interactive) | **Yes** | Token auto-refreshes |
+| **PAT** | Quick one-off manual test. Frequently **disabled** in locked-down orgs. | `HOST` + a personal access token | No | Yes; tied to your user |
+
+- **Recommendation:** use **SP OAuth M2M** for anything shared or repeatable — it
+  works without the CLI (pure REST/provider auth), suits restricted networks, and
+  isn't tied to a person.
+- **Regardless of method**, the identity still needs the actual *deploy*
+  permissions (Lakebase access; and `CREATE CATALOG` for the catalog) — getting a
+  credential ≠ having those rights. See [`PREVALIDATION.md` §3 and §7](./PREVALIDATION.md).
 
 ---
 
