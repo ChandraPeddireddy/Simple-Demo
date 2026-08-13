@@ -241,10 +241,13 @@ Give the app team:
 ```bash
 terraform destroy         # review, then type: yes
 ```
-- Stops billing. By default the project is **soft-deleted** (slug reserved ~7
-  days). To free the slug immediately, set `purge_on_delete = true` before
-  destroy. (Re-deploying the same `project_id` within the window is fine — it
-  reuses the slug.)
+- Stops billing.
+- **Soft vs hard delete** is controlled by `purge_on_delete` (default `false`):
+  - `false` → **soft delete**: the `project_id` slug stays **reserved ~7 days**
+    (re-deploying the same id within the window is fine — it reuses the slug).
+  - `true` → **hard delete**: frees the slug **immediately**.
+  To free the slug now, set it before destroy — in `terraform.tfvars`
+  (`purge_on_delete = true`) or inline: `terraform destroy -var purge_on_delete=true`.
 
 ---
 

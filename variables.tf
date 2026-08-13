@@ -30,6 +30,12 @@ variable "pg_version" {
   }
 }
 
+variable "purge_on_delete" {
+  description = "How `terraform destroy` deletes the project. false = soft delete (7-day retention, project_id slug stays reserved); true = hard delete (frees the slug immediately). Keep false for anything you might want back."
+  type        = bool
+  default     = false
+}
+
 # --- Production instance size ------------------------------------------------
 # Sensible starting point only. Autoscaling range, HA/readable secondaries, and
 # suspension are intentionally NOT locked down here — the app team tunes those

@@ -14,7 +14,8 @@
 
 # Project — auto-provisions the `production` branch and a `primary` RW endpoint.
 resource "databricks_postgres_project" "this" {
-  project_id = var.project_id
+  project_id      = var.project_id
+  purge_on_delete = var.purge_on_delete
   spec = {
     pg_version   = var.pg_version
     display_name = var.project_display_name

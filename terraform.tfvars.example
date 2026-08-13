@@ -6,6 +6,11 @@ project_id           = "simple-demo"
 project_display_name = "Simple Demo"
 pg_version           = 17
 
+# Destroy behavior: false = soft delete (slug reserved ~7 days), true = hard
+# delete (frees the project_id slug immediately). Keep false unless you want the
+# slug back right away (e.g. dev/CI that recreates the same id).
+purge_on_delete      = false
+
 # Starting instance size (tune autoscaling/HA/replicas from the UI later).
 prod_min_cu = 1
 prod_max_cu = 2
