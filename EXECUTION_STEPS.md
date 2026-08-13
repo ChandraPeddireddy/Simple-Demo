@@ -83,17 +83,40 @@ If Terraform is missing/old: `brew install terraform` (or your platform's method
 
 ## Step 3 — Configure credentials
 
-Copy the template and fill in your values from Step 0:
+Do **Option A** or **Option B** (matching your Step 0 choice), not both.
+
+### Option A — SP OAuth M2M (recommended, no CLI)
 
 ```bash
 cp env.sh.example env.sh          # env.sh is gitignored — never commit it
 chmod 600 env.sh
 # edit env.sh:  DATABRICKS_HOST, DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET
 source env.sh
+echo "$DATABRICKS_HOST"           # sanity check — prints your workspace URL
 ```
-- **Expected:** `echo "$DATABRICKS_HOST"` prints your workspace URL.
-- **Alternative (CLI profile):** `databricks auth login --host <url> --profile simple-demo`
-  and use `--profile simple-demo` in later steps instead of `env.sh`.
+- Then in later steps use: `./preflight.sh --project-id <project-id> --principal "$DATABRICKS_CLIENT_ID"`.
+
+### Option B — CLI profile (requires the Databricks CLI)
+
+```bash
+# 1. Install the CLI (once)
+brew tap databricks/tap && brew install databricks     # or your platform's method
+
+# 2a. USER profile — interactive browser sign-in:
+databricks auth login --host https://adb-XXXXXXXX.azuredatabricks.net --profile <profile>
+
+# 2b. OR a SERVICE-PRINCIPAL profile — add a block to ~/.databrickscfg (no browser):
+#   [<profile>]
+#   host          = https://adb-XXXXXXXX.azuredatabricks.net
+#   client_id     = <sp-application-id>
+#   client_secret = <sp-oauth-secret>
+
+# 3. Verify the profile works
+databricks auth profiles          # your <profile> should show Valid = YES
+databricks current-user me        # confirms the identity
+```
+- Then in later steps use `--profile <profile>` instead of `source env.sh`
+  (e.g. `./preflight.sh --profile <profile> --project-id <project-id>`).
 
 ---
 
@@ -113,11 +136,13 @@ One command checks all 8 prerequisites (tries CLI, falls back to REST):
 
 ```bash
 # SP M2M (after `source env.sh`):
-./preflight.sh --project-id simple-demo --principal "$DATABRICKS_CLIENT_ID"
+./preflight.sh --project-id <project-id> --principal "$DATABRICKS_CLIENT_ID"
 
 # or CLI profile:
-./preflight.sh --profile simple-demo --project-id simple-demo
+./preflight.sh --profile <profile> --project-id <project-id>
 ```
+- `<project-id>` = the value you set in `terraform.tfvars` (Step 4); `<profile>`
+  = the CLI profile name from Step 3 Option B.
 - **Expected:** ends with `READY — all blocking checks passed.`
 - **If it says `BLOCKED`:** fix each `[FAIL]` (the script prints the fix). The
   most common one is **Check #7 `CREATE CATALOG`** — see Step 8. Full guidance
@@ -247,7 +272,7 @@ cp terraform.tfvars.example terraform.tfvars
 # edit terraform.tfvars: project_id, prod_min_cu/prod_max_cu, uc_catalog_id
 
 # --- Step 5: pre-validation (all 8 checks) ---
-./preflight.sh --project-id simple-demo --principal "$DATABRICKS_CLIENT_ID"
+./preflight.sh --project-id <project-id> --principal "$DATABRICKS_CLIENT_ID"
 # fix any [FAIL]; must end with: READY
 
 # --- Step 6-8: deploy ---
@@ -268,8 +293,8 @@ terraform destroy                      # type: yes
 
 CLI-profile path differs only in Steps 3 and 5:
 ```bash
-databricks auth login --host <url> --profile simple-demo   # Step 3 (instead of env.sh)
-./preflight.sh --profile simple-demo --project-id simple-demo   # Step 5
+databricks auth login --host <url> --profile <profile>          # Step 3 (instead of env.sh)
+./preflight.sh --profile <profile> --project-id <project-id>    # Step 5
 ```
 
 ---
