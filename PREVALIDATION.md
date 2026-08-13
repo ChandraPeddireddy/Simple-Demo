@@ -1,8 +1,15 @@
 # Pre-validation — `simple-demo`
 
 Checks that must pass **before** `terraform apply` will succeed, in dependency
-order. Nothing here creates resources. `preflight.sh` automates checks **1–6**;
-**7–8** need a principal / project id, so run those manually.
+order. Nothing here creates resources. **`preflight.sh` automates all 8 checks**
+— it tries the CLI happy path and auto-falls back to the REST workaround, so it
+runs with or without the CLI. Pass `--project-id` / `--principal` for checks 7–8:
+
+```bash
+./preflight.sh --profile <name>                          # CLI profile
+./preflight.sh --host <url> --client-id <id> --client-secret <secret>   # SP M2M, no CLI
+source env.sh && ./preflight.sh                          # picks up DATABRICKS_* from env
+```
 
 ## At a glance
 
