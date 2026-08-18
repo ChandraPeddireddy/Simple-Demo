@@ -7,9 +7,12 @@ project_display_name = "Simple Demo"
 pg_version           = 17
 
 # Destroy behavior: false = soft delete (slug reserved ~7 days), true = hard
-# delete (frees the project_id slug immediately). Keep false unless you want the
-# slug back right away (e.g. dev/CI that recreates the same id).
-purge_on_delete      = false
+# delete (frees the project_id slug immediately).
+# Set to `true` for now for easy dev/demo iteration (recreate the same id
+# without waiting out the 7-day reservation).
+# IMPORTANT: set to `false` for production deployments — a destroy should not be
+# able to immediately and irreversibly drop the project.
+purge_on_delete      = true
 
 # Starting instance size (tune autoscaling/HA/replicas from the UI later).
 prod_min_cu = 1

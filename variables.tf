@@ -31,9 +31,9 @@ variable "pg_version" {
 }
 
 variable "purge_on_delete" {
-  description = "How `terraform destroy` deletes the project. false = soft delete (7-day retention, project_id slug stays reserved); true = hard delete (frees the slug immediately). Keep false for anything you might want back."
+  description = "How `terraform destroy` deletes the project. false = soft delete (7-day retention, project_id slug stays reserved); true = hard delete (frees the slug immediately). NOTE: default is `true` for now to keep dev/demo iteration easy (destroy + recreate the same project_id without waiting out the 7-day slug reservation). Set to `false` for production so a destroy cannot immediately and irreversibly drop the project."
   type        = bool
-  default     = false
+  default     = true
 }
 
 # --- Production instance size ------------------------------------------------
