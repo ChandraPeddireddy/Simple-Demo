@@ -34,18 +34,21 @@ foundation and gets out of the app team's way.
 
 | File | What it carries | Values to look out for |
 |---|---|---|
-| **`versions.tf`** | Version pins + the `databricks` provider block. | Terraform **≥ 1.9** (needed for cross-variable validation); provider **≥ 1.126.0, < 2.0** (first version exposing the `postgres_*` resources). Auth is **env-based — nothing is hardcoded**. |
+| **`versions.tf`** | Version constraints + the `databricks` provider block. | Terraform **≥ 1.9** (needed for cross-variable validation); provider **≥ 1.126.0, < 2.0** (first version exposing the `postgres_*` resources). These are **constraints, not exact pins** — `.terraform.lock.hcl` (which pins the resolved version) is gitignored, so commit it if the team needs byte-identical provider installs. Auth is **env-based — nothing is hardcoded**. |
 | **`main.tf`** | The 3 resources: project → sized primary endpoint → UC catalog. | `endpoint.replace_existing = true` **adopts** the auto-created `primary` (doesn't make a second one). `catalog.create_database_if_missing = false`. The catalog resource **requires `CREATE CATALOG` on the metastore**. No branch/HA resources — by design. |
 | **`variables.tf`** | All inputs, each with a validation rule. | See the **"Values to review"** table below — this is the file to read line-by-line in the session. |
 | **`outputs.tf`** | What you hand to the app team after apply. | `project_name`, `production_branch`, `prod_endpoint_host` (RW connection host), `uc_catalog_name`. |
 
-### Configuration you copy & fill in (both gitignored)
+### Configuration & repo hygiene
+
+The two `*.example` files are **templates you copy** to their real names (the
+copies are gitignored). `.gitignore` is the committed file that enforces that.
 
 | File | What it carries | Values to look out for |
 |---|---|---|
 | **`terraform.tfvars.example`** | Template of input values. Copy to **`terraform.tfvars`** (gitignored). | This is where you set `project_id`, sizing, and the UC catalog name. Note `purge_on_delete = true` here — **flip to `false` for prod**. |
 | **`env.sh.example`** | Credential template (host + SP OAuth **or** PAT). Copy to **`env.sh`** (gitignored), `chmod 600`, then `source`. | The `CLIENT_SECRET` is a **live, expiring credential** — never commit it, never put it in tfvars/state/logs. For CI, inject from the pipeline secret store, not a file. |
-| **`.gitignore`** | Keeps secrets and state out of git. | Ignores `env.sh`, `*.tfvars`, all `*.tfstate*`, `.terraform/`. **State is local** here (POC) — for shared/team use, move to a **remote backend**. |
+| **`.gitignore`** | Committed. Keeps secrets and state out of git. | Ignores `env.sh`, `*.tfvars`, all `*.tfstate*`, `.terraform/`, and `.terraform.lock.hcl`. **State is local** here (POC) — for shared/team use, move to a **remote backend**. |
 
 ### Readiness & runbook docs
 
@@ -53,7 +56,7 @@ foundation and gets out of the app team's way.
 |---|---|---|
 | **`preflight.sh`** | **Read-only** 8-check "ready to deploy?" script. Tries the Databricks CLI, auto-falls back to REST if the CLI is absent. Exit 0 = ready. | Run it **before every deploy**. Checks: Terraform ≥1.9, CLI (optional), auth, provider resolves, Lakebase reachable, metastore attached, **`CREATE CATALOG` for the deploying principal**, and **`project_id` collision** (active or soft-deleted/slug-reserved). |
 | **`PREVALIDATION.md`** | The narrative behind each preflight check — how to get each value from the workspace, who can get credentials, and workarounds (e.g. blocked provider registry). | Reference doc for when a check **fails** and you need the fix. |
-| **`EXECUTION_STEPS.md`** | The full **step-by-step customer runbook** (Step 0 → 8 + teardown). | The authoritative deploy guide — hand this to whoever runs the deploy. |
+| **`EXECUTION_STEPS.md`** | The full **step-by-step customer runbook** (Steps 0 → 11: setup, deploy, verify, hand-off, teardown). | The authoritative deploy guide — hand this to whoever runs the deploy. |
 | **`README.md`** | This overview. | Start here; go to `EXECUTION_STEPS.md` to actually deploy. |
 
 ---
@@ -107,7 +110,7 @@ terraform output            # project_name, production_branch, prod_endpoint_hos
 
 ### Prerequisites
 
-- Terraform **≥ 1.9**, Databricks provider **≥ 1.126.0** (pinned in `versions.tf`).
+- Terraform **≥ 1.9**, Databricks provider **≥ 1.126.0** (constrained in `versions.tf`).
 - Databricks auth via env (`DATABRICKS_HOST` + `DATABRICKS_CLIENT_ID`/`SECRET`,
   or `DATABRICKS_CONFIG_PROFILE`).
 - **`CREATE CATALOG` on the metastore** for the deploying identity.
