@@ -95,6 +95,11 @@ source env.sh
 echo "$DATABRICKS_HOST"           # sanity check — prints your workspace URL
 ```
 - Then in later steps use: `./preflight.sh --project-id <project-id> --principal "$DATABRICKS_CLIENT_ID"`.
+- **Auth-precedence gotcha:** a `DATABRICKS_CONFIG_PROFILE` (or `DATABRICKS_TOKEN`)
+  left set in your shell **shadows** these SP creds and silently authenticates to
+  the wrong workspace (you'll see `profile=<name>` and an unexpected host in errors).
+  `env.sh` now `unset`s both on `source`; if you run Terraform without sourcing
+  `env.sh`, clear them yourself first (`unset DATABRICKS_CONFIG_PROFILE`).
 
 ### Option B — CLI profile (requires the Databricks CLI)
 
